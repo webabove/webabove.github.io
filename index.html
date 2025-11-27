@@ -41,7 +41,7 @@
         body {
             margin: 0;
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f7 100%);
+            background: #f6f7ff;
             color: var(--text);
             min-height: 100vh;
         }
@@ -1627,6 +1627,51 @@
             }
         ];
 
+        function enrichPartnerLocations() {
+            const postalCodePattern = /\b\d{4,5}\b/;
+
+            partners.forEach(partner => {
+                if (!partner.address) {
+                    return;
+                }
+
+                const addressParts = partner.address.split(',').map(part => part.trim()).filter(Boolean);
+                let locationSegment = addressParts[addressParts.length - 1] || '';
+
+                if (!partner.plz) {
+                    const postalMatch = locationSegment.match(postalCodePattern);
+                    if (postalMatch) {
+                        partner.plz = postalMatch[0];
+                    }
+                }
+
+                if (!partner.city) {
+                    if (partner.plz && locationSegment.includes(partner.plz)) {
+                        partner.city = locationSegment.replace(partner.plz, '').replace(/^[,\\s-]+/, '').trim();
+                    } else if (addressParts.length > 1) {
+                        partner.city = locationSegment;
+                    }
+                }
+            });
+        }
+
+        function getLocationLines(partner) {
+            const lines = [];
+
+            if (partner.address) {
+                lines.push(partner.address);
+            }
+
+            const postalLine = [partner.plz, partner.city].filter(Boolean).join(' ').trim();
+            if (postalLine && lines[lines.length - 1] !== postalLine) {
+                lines.push(postalLine);
+            }
+
+            return lines;
+        }
+
+        enrichPartnerLocations();
+
         // =====================================================
         // Globale Variablen
         // =====================================================
@@ -1712,17 +1757,18 @@
                         partnerId: partner.id
                     });
 
+                    const locationLines = getLocationLines(partner);
+
                     // Popup Content
                     const popupContent = `
                         <div class="map-popup">
                             <h3 class="map-popup__title">${partner.name}</h3>
                             <div class="map-popup__content">
-                                ${partner.address ? `
+                                ${locationLines.length ? `
                                 <div class="map-popup__item">
                                     <span class="map-popup__item-icon">📍</span>
                                     <span class="map-popup__item-text">
-                                        ${partner.address}<br>
-                                        ${partner.plz} ${partner.city}
+                                        ${locationLines.join('<br>')}
                                     </span>
                                 </div>
                                 ` : ''}
@@ -1791,15 +1837,17 @@
                 li.className = 'partner-item';
                 li.dataset.partnerId = partner.id;
                 li.dataset.region = partner.region;
-                li.dataset.searchText = `${partner.name} ${partner.city} ${partner.plz} ${partner.region}`.toLowerCase();
+                li.dataset.searchText = `${partner.name} ${partner.city || ''} ${partner.plz || ''} ${partner.address || ''} ${partner.region}`.toLowerCase();
+
+                const locationLines = getLocationLines(partner);
 
                 li.innerHTML = `
                     <h3 class="partner-name">${partner.name}</h3>
                     <div class="partner-meta">
-                        ${partner.city ? `
+                        ${locationLines.length ? `
                         <div class="partner-meta-item">
                             <span>📍</span>
-                            <span>${partner.plz} ${partner.city}</span>
+                            <span>${locationLines.join('<br>')}</span>
                         </div>
                         ` : ''}
                         ${partner.phone ? `
