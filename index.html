@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einbaupartner – Interaktive Karte & Liste</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    
+    <!-- Google Fonts - Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #20225b;
+            --primary-light: #f3f4ff;
+            --primary-hover: #2a2f75;
+            --accent: #4a9eff;
+            --border: #d9d9e6;
+            --text: #222;
+            --muted: #666;
+            --bg: #ffffff;
+            --bg-hover: #f8f9ff;
+            --badge-open: #2e7d32;
+            --badge-closed: #c62828;
+            --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            --shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f7 100%);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .partner-layout {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .partner-layout__header {
+            margin-bottom: 30px;
+        }
+
+        .partner-layout__title {
+            margin: 0 0 10px;
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .partner-layout__subtitle {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .controls-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg);
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            pointer-events: none;
+        }
+
+        .filter-dropdown {
+            position: relative;
+        }
+
+        .filter-button {
+            padding: 10px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+        }
+
+        .filter-button:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+        }
+
+        .filter-button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .filter-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow-hover);
+            padding: 8px 0;
+            min-width: 200px;
+            z-index: 1000;
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .filter-menu.show {
+            display: block;
+        }
+
+        .filter-option {
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .filter-option:hover {
+            background: var(--bg-hover);
+        }
+
+        .filter-option input[type="checkbox"] {
+            accent-color: var(--primary);
+        }
+
+        .reset-button {
+            padding: 10px 16px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--muted);
+        }
+
+        .reset-button:hover {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .partner-layout__grid {
+            display: grid;
+            grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .map-container {
+            position: relative;
+            background: var(--bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        #partner-map {
+            width: 100%;
+            height: 600px;
+            border-radius: 16px;
+        }
+
+        .list-container {
+            background: var(--bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .list-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .list-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            flex: 1;
+        }
+
+        .partner-count {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .partner-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .partner-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: block;
+        }
+
+        .partner-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .partner-item--active {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .partner-item--hidden {
+            display: none !important;
+        }
+
+        .partner-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 6px;
+            color: var(--text);
+            line-height: 1.3;
+        }
+
+        .partner-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .partner-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .partner-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .partner-badge--region {
+            background: rgba(74, 158, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .map-popup {
+            min-width: 240px;
+            max-width: 300px;
+        }
+
+        .map-popup__title {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0 0 10px;
+            color: var(--text);
+            line-height: 1.3;
+        }
+
+        .map-popup__content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .map-popup__item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .map-popup__item-icon {
+            color: var(--primary);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .map-popup__item-text {
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .map-popup__item-link {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .map-popup__item-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .no-results__icon {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+
+        /* Custom scrollbar */
+        .list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .list-container::-webkit-scrollbar-track {
+            background: var(--bg-hover);
+            border-radius: 10px;
+        }
+
+        .list-container::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+            transition: background 0.2s ease;
+        }
+
+        .list-container::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .partner-layout__grid {
+                grid-template-columns: 1fr;
+            }
+
+            .list-container {
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .partner-layout {
+                padding: 20px 15px;
+            }
+
+            .partner-layout__title {
+                font-size: 24px;
+            }
+
+            #partner-map {
+                height: 400px;
+            }
+
+            .controls-bar {
+                flex-direction: column;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+        }
+
+        /* Custom Marker Styles - Original Design erhalten */
+        .custom-marker {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #20225b 0%, #4a9eff 100%);
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .custom-marker-content {
+            pointer-events: none;
+        }
+
+        .custom-marker:hover {
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .custom-marker.active {
+            background: linear-gradient(135deg, #4a9eff 0%, #20225b 100%);
+            transform: scale(1.2);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="partner-layout">
+        <!-- Header Section -->
+        <div class="partner-layout__header">
+            <h1 class="partner-layout__title">Einbaupartner in Ihrer Nähe</h1>
+            <p class="partner-layout__subtitle">
+                Finden Sie qualifizierte Einbaupartner für Ihr Projekt – 
+                nutzen Sie die interaktive Karte oder durchsuchen Sie die Liste.
+            </p>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput"
+                    placeholder="Suche nach Partner, Ort oder PLZ..."
+                >
+                <span class="search-icon">🔍</span>
+            </div>
+            
+            <div class="filter-dropdown">
+                <button class="filter-button" id="filterButton">
+                    <span>🎯</span>
+                    <span>Region filtern</span>
+                    <span id="filterCount" style="display: none;"></span>
+                </button>
+                <div class="filter-menu" id="filterMenu">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+            
+            <button class="reset-button" id="resetButton">
+                <span>↻ Zurücksetzen</span>
+            </button>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="partner-layout__grid">
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="partner-map"></div>
+            </div>
+
+            <!-- List Container -->
+            <div class="list-container">
+                <div class="list-header">
+                    <h2 class="list-title">Partnerliste</h2>
+                    <span class="partner-count">
+                        <span id="visibleCount">0</span> Partner
+                    </span>
+                </div>
+                <ul class="partner-list" id="partner-list">
+                    <!-- Dynamically populated -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // =====================================================
+        // Partnerdaten - Kombination aus Original-Karte und neuen Einbaupartnern
+        // =====================================================
+        const partners = [
+            // === ORIGINAL PARTNER AUS DER VORHERIGEN KARTE ===
+            
+            // Bayern
+            {
+                id: "wohnmobile-erlangen",
+                name: "Wohnmobile Erlangen",
+                region: "Bayern",
+                address: "Medbacher Weg 11, 91315 Höchstadt",
+                phone: "+49 9193 50134-10",
+                email: "info@wohnmobile-erlangen.de",
+                lat: 49.7007,
+                lng: 10.8147
+            },
+            {
+                id: "autohaus-behrmann",
+                name: "Autohaus Behrmann",
+                region: "Bayern",
+                address: "Rudolf-Diesel-Ring 1, 97616 Bad Neustadt/Saale",
+                phone: "+49 9771 2145",
+                email: "info@autohaus-behrmann.de",
+                lat: 50.3231,
+                lng: 10.2099
+            },
+            {
+                id: "kastenwagen-boot-service",
+                name: "Kastenwagen-Boot-Service",
+                region: "Bayern",
+                address: "An den Holzwiesen 3, 82131 Gauting",
+                phone: "+49 89 7400 4665",
+                email: "service@kastenwagen-boot.de",
+                lat: 48.0689,
+                lng: 11.3731
+            },
+            {
+                id: "caravaning-service-sader",
+                name: "Caravaning Service Sader",
+                region: "Bayern",
+                address: "Im Farchet 11, 83646 Bad Tölz",
+                phone: "+49 8041 794 48 48",
+                email: "info@caravaning-service.de",
+                lat: 47.7611,
+                lng: 11.5589
+            },
+            {
+                id: "mr-camper-service",
+                name: "MR Camper-Service",
+                region: "Bayern",
+                address: "Am Hofgarten 7, 87637 Eisenberg/Zell",
+                phone: "+49 8363 3590667",
+                email: "info@max-reports.de",
+                lat: 47.7669,
+                lng: 10.5944
+            },
+            {
+                id: "camping-neuss-immenstadt",
+                name: "Camping Neuss (Immenstadt)",
+                region: "Bayern",
+                address: "Thanners 7, 87509 Immenstadt",
+                phone: "+49 8379 92942-0",
+                email: "info@camping-neuss.de",
+                lat: 47.5614,
+                lng: 10.2178
+            },
+            {
+                id: "camping-neuss-goerisried",
+                name: "Camping Neuss (Görisried)",
+                region: "Bayern",
+                address: "In der Lache 10, 87657 Görisried",
+                phone: "+49 8302 922 6883",
+                email: "info@camping-neuss.de",
+                lat: 47.8736,
+                lng: 10.4578
+            },
+            {
+                id: "mika-caravan",
+                name: "Mika Caravan",
+                region: "Bayern",
+                address: "Heininger Str. 24, 91550 Dinkelsbühl",
+                phone: "+49 9851 5269198",
+                email: "info@mika-caravan.de",
+                lat: 49.0669,
+                lng: 10.3192
+            },
+            {
+                id: "mw-caravaning",
+                name: "MW Caravaning",
+                region: "Bayern",
+                address: "Romantische Straße 17, 86753 Möttingen",
+                phone: "+49 90 83 96 99 0",
+                email: "info@mw-caravaning.de",
+                lat: 48.7883,
+                lng: 10.6078
+            },
+            {
+                id: "asr-caravanservice",
+                name: "ASR caravanservice",
+                region: "Bayern",
+                address: "Kolpingstraße 4, 92289 Ursensollen",
+                phone: "+49 9628 929546",
+                email: "info@asr-caravanservice.de",
+                lat: 49.3986,
+                lng: 11.7561
+            },
+            {
+                id: "orthos",
+                name: "ORTHOS",
+                region: "Bayern",
+                address: "Weyhausenstraße 7, 91077 Neunkirchen a. Brand",
+                phone: "+49 9134 708 780",
+                email: "info@orthos-mobile.de",
+                lat: 49.6114,
+                lng: 11.1303
+            },
+
+            // Nordrhein-Westfalen
+            {
+                id: "moldenhauer-fahrzeugtechnik",
+                name: "Moldenhauer Fahrzeugtechnik",
+                region: "Nordrhein-Westfalen",
+                address: "Güldenwerth 64, 42857 Remscheid",
+                phone: "+49 177 2764171",
+                email: "info@mft-rs.de",
+                lat: 51.1787,
+                lng: 7.1897
+            },
+            {
+                id: "huppertz-freizeit",
+                name: "Huppertz-Freizeit & Mehr",
+                region: "Nordrhein-Westfalen",
+                address: "Dunlopstraße 44, 33689 Bielefeld",
+                phone: "+49 5205 950988",
+                email: "info@huppertz-freizeit.de",
+                lat: 52.0519,
+                lng: 8.5317
+            },
+            {
+                id: "norbert-erdmann",
+                name: "Norbert Erdmann Camping Freizeit und mehr",
+                region: "Nordrhein-Westfalen",
+                address: "Obernienhagen 17, 32758 Detmold",
+                phone: "+49 179 8049666",
+                email: "campingfreizeitundmehr@gmail.com",
+                lat: 51.9385,
+                lng: 8.8784
+            },
+
+            // Schleswig-Holstein
+            {
+                id: "thokamobil",
+                name: "ThoKaMobil",
+                region: "Schleswig-Holstein",
+                address: "Neumünsterstraße 33, 24598 Boostedt",
+                phone: "+49 152 05484191",
+                email: "moin@thokamobil.de",
+                lat: 53.9897,
+                lng: 10.0139
+            },
+
+            // Hessen
+            {
+                id: "huettl-caravaning",
+                name: "Hüttl Caravaning",
+                region: "Hessen",
+                address: "Robert-Bosch-Straße 2-4, 63477 Maintal",
+                phone: "+49 6181 42 4330",
+                email: "info@huettlrent.de",
+                lat: 50.1447,
+                lng: 8.8378
+            },
+
+            // Niedersachsen
+            {
+                id: "freizeit-center-albrecht",
+                name: "Freizeit-Center Albrecht",
+                region: "Niedersachsen",
+                address: "Porschestraße 15, 21423 Winsen (Luhe)",
+                phone: "+49 4171 601650",
+                email: "info@freizeit-mobil-erleben.de",
+                lat: 53.3569,
+                lng: 10.2131
+            },
+            {
+                id: "jan-thiel-mobiler-service",
+                name: "Jan Thiel Mobiler-Caravan-Service",
+                region: "Niedersachsen",
+                address: "Lüneburger Heide",
+                phone: "+49 157 563 801 86",
+                email: "info@thielsservice.de",
+                lat: 53.1611,
+                lng: 10.2061
+            },
+
+            // Mecklenburg-Vorpommern
+            {
+                id: "wohnmobile-caravans-linke",
+                name: "Wohnmobile & Caravans Linke",
+                region: "Mecklenburg-Vorpommern",
+                address: "Grevenbarg 1, 23970 Gewerbegebiet Kritzow / Wismar Ost",
+                phone: "+49 3841 283758",
+                email: "wohnmobile-linke@t-online.de",
+                lat: 53.8993,
+                lng: 11.4631
+            },
+            {
+                id: "car-sound-systeme",
+                name: "Car Sound Systeme",
+                region: "Mecklenburg-Vorpommern",
+                address: "Stralsunder Chaussee 10, 18538 Bergen auf Rügen",
+                phone: "+49 3838 256704",
+                email: "info@carsoundsysteme.de",
+                lat: 54.4167,
+                lng: 13.4333
+            },
+
+            // Baden-Württemberg
+            {
+                id: "leibhammer",
+                name: "CampingCaravanCenter Leibhammer",
+                region: "Baden-Württemberg",
+                address: "Benzstr. 3-5, 76448 Durmersheim",
+                phone: "+49 7245 6983",
+                email: "info@leibhammer.com",
+                lat: 48.9347,
+                lng: 8.2706
+            },
+            {
+                id: "vandelbar",
+                name: "Vandelbar - Christian Ittner",
+                region: "Baden-Württemberg",
+                address: "Auf Stiegel 50, 72461 Albstadt",
+                phone: "+49 162 3823630",
+                email: "info@vandelbar.de",
+                lat: 48.2103,
+                lng: 9.0256
+            },
+            {
+                id: "reisemobilwerkstatt-bischoff",
+                name: "Reisemobilwerkstatt Bischoff",
+                region: "Baden-Württemberg",
+                address: "Krautstückerweg 17, 76706 Dettenheim",
+                phone: "+49 7247 3983614",
+                email: "reisemobilwerkstatt@gmx.de",
+                lat: 49.1683,
+                lng: 8.4622
+            },
+            {
+                id: "seecamper",
+                name: "Seecamper",
+                region: "Baden-Württemberg",
+                address: "Im Branden 10, 88634 Herdwangen-Schönach",
+                phone: "+49 7557 929490",
+                email: "info@seecamper.com",
+                lat: 47.8428,
+                lng: 9.1619
+            },
+            {
+                id: "autocenter-klaus",
+                name: "Autocenter Klaus",
+                region: "Baden-Württemberg",
+                address: "Oberriedweg 9-13a, 88662 Überlingen",
+                phone: "+49 7551 95200",
+                email: "info@autocenter-klaus.de",
+                lat: 47.7703,
+                lng: 9.1597
+            },
+
+            // Thüringen
+            {
+                id: "proverda",
+                name: "ProVerDa GmbH",
+                region: "Thüringen",
+                address: "An der Lache 40/42, 99086 Erfurt",
+                phone: "+49 361 34948420",
+                email: "info@proverda-erfurt.de",
+                lat: 50.9781,
+                lng: 11.0297
+            },
+
+            // Rheinland-Pfalz
+            {
+                id: "womoprofi",
+                name: "WomoProfi",
+                region: "Rheinland-Pfalz",
+                address: "Gewerbegebiet 4, 54668 Echternacherbrück",
+                phone: "+352 621 235 530",
+                email: "info@womoprofi.de",
+                lat: 49.8117,
+                lng: 6.4161
+            },
+
+            // Sachsen
+            {
+                id: "camper-service-meissen",
+                name: "Camper Service Meißen",
+                region: "Sachsen",
+                address: "Zur Alten Elektrowärme 7, 01640 Neusörnewitz",
+                phone: "+49 179 2305797",
+                email: "mail@camper-service-meissen.de",
+                lat: 51.1917,
+                lng: 13.4731
+            },
+            {
+                id: "vanxplorer",
+                name: "VanXplorer",
+                region: "Sachsen",
+                address: "Talstraße 107, 01156 Dresden",
+                phone: "+49 1511 7866087",
+                email: "info@vanxplorer.de",
+                lat: 51.0769,
+                lng: 13.7372
+            },
+
+            // Schweiz
+            {
+                id: "solar-autarker",
+                name: "Solar-Autarker",
+                region: "Schweiz",
+                address: "Flühlistrasse 19, 6170 Schüpfheim",
+                phone: "+41 41 484 26 20",
+                email: "info@solar-autarker.ch",
+                lat: 46.9517,
+                lng: 8.0175
+            },
+
+            // Italien
+            {
+                id: "adami-camper",
+                name: "ADAMI CAMPER",
+                region: "Italien",
+                address: "Via Luigi Pierobon 119, 35010 Limena PD",
+                phone: "+39 049 767750",
+                email: "info@adamicamper.it",
+                lat: 45.4814,
+                lng: 11.8467
+            },
+
+            // === NEUE PARTNER AUS DEM WORD-DOKUMENT ===
+            {
+                id: "p101",
+                name: "mobi-caravan-service",
+                address: "Am Weiher 5",
+                plz: "52445",
+                city: "Titz-Ameln",
+                region: "Nordrhein-Westfalen",
+                phone: "02463 7911647",
+                email: "kontakt@mobi-caravan.de",
+                website: "www.mobi-caravan.de",
+                lat: 50.9833,
+                lng: 6.4667
+            },
+            {
+                id: "p102",
+                name: "kamperowy.pl",
+                address: "Wiklinowa 19",
+                plz: "05-092",
+                city: "Łomianki",
+                region: "Polen",
+                phone: "+48 509 449 846",
+                email: "bartektwarog@kamperowy.pl",
+                website: "www.kamperowy.pl",
+                lat: 52.3331,
+                lng: 20.8838
+            },
+            {
+                id: "p103",
+                name: "Jägers-Wohnmobile GmbH",
+                address: "Bielstrasse 41",
+                plz: "2544",
+                city: "Bettlach",
+                region: "Schweiz",
+                phone: "032 531 33 61",
+                email: "info@jaegers-wohnmobile.ch",
+                website: "www.jaegers-wohnmobile.ch",
+                lat: 47.2167,
+                lng: 7.4167
+            },
+            {
+                id: "p104",
+                name: "Wohnmobilservice Aufenau",
+                address: "Struthstr. 4",
+                plz: "63607",
+                city: "Wächtersbach-Aufenau",
+                region: "Hessen",
+                phone: "0172 6943417",
+                email: "aufenau@arcor.de",
+                lat: 50.2547,
+                lng: 9.2908
+            },
+            {
+                id: "p105",
+                name: "Caravaning-Shop.ch",
+                address: "Bahnhofstrasse 25",
+                plz: "3629",
+                city: "Kiesen",
+                region: "Schweiz",
+                phone: "033 437 41 60",
+                email: "info@caravaning-shop.ch",
+                website: "www.caravaning-shop.ch",
+                lat: 46.8214,
+                lng: 7.5831
+            },
+            {
+                id: "p106",
+                name: "kompaktCamper",
+                address: "Hilchenbacher Straße 10",
+                plz: "04509",
+                city: "Krostitz",
+                region: "Sachsen",
+                phone: "+49 34295 78 63 20",
+                email: "frank.grabsch@kompaktwerbe.de",
+                website: "www.kompaktcamper.de",
+                lat: 51.4667,
+                lng: 12.4500
+            },
+            {
+                id: "p107",
+                name: "Falcon Caravan",
+                address: "Elisenstraße 16",
+                plz: "90441",
+                city: "Nürnberg",
+                region: "Bayern",
+                phone: "01573 6631322",
+                email: "Ing.BKlein@gmx.de",
+                lat: 49.4521,
+                lng: 11.0767
+            },
+            {
+                id: "p108",
+                name: "Caravan-Center Zentralschweiz GmbH",
+                address: "Muotastrasse 75",
+                plz: "6438",
+                city: "Ibach",
+                region: "Schweiz",
+                phone: "+41 41 599 64 38",
+                email: "info@caravan-center-zentralschweiz.ch",
+                website: "www.caravan-center-zentralschweiz.ch",
+                lat: 47.0061,
+                lng: 8.6433
+            },
+            {
+                id: "p109",
+                name: "WohnMobilVermietung",
+                address: "Rieseler Feld 5a",
+                plz: "33034",
+                city: "Brakel",
+                region: "Nordrhein-Westfalen",
+                phone: "0 52 72 39 38 74",
+                email: "info@urlaub-im-wohnmobil.de",
+                website: "www.urlaub-im-wohnmobil.de",
+                lat: 51.7167,
+                lng: 9.1833
+            },
+            {
+                id: "p110",
+                name: "Schwarzwald Mobil",
+                address: "Allmend 19",
+                plz: "77723",
+                city: "Gengenbach",
+                region: "Baden-Württemberg",
+                phone: "+49 7803 966 3412",
+                email: "info@schwamobil.de",
+                website: "www.schwarzwaldmobil.de",
+                lat: 48.4043,
+                lng: 8.0134
+            },
+            {
+                id: "p111",
+                name: "Mobiler Caravan- & Reisemobilservice",
+                address: "In der Enz 6",
+                plz: "82438",
+                city: "Eschenlohe",
+                region: "Bayern",
+                phone: "0151 29131562",
+                email: "mcrs-liebl@web.de",
+                website: "www.mcrs-liebl.de",
+                lat: 47.5989,
+                lng: 11.1869
+            },
+            {
+                id: "p112",
+                name: "Fellbacher Caravaning Markt",
+                address: "Friedrich-List-Str. 1",
+                plz: "70736",
+                city: "Fellbach",
+                region: "Baden-Württemberg",
+                phone: "0711 906580540",
+                email: "j.hinderer@fellbacher-caravaningmarkt.de",
+                website: "www.fellbacher-caravaningmarkt.com",
+                lat: 48.8111,
+                lng: 9.2756
+            },
+            {
+                id: "p113",
+                name: "KRAWOTEC GmbH",
+                address: "Ruwerer Str. 29",
+                plz: "54292",
+                city: "Trier",
+                region: "Rheinland-Pfalz",
+                phone: "(0651) 6 50 69 69",
+                email: "faber@krawotec.de",
+                website: "www.krawotec.de",
+                lat: 49.7596,
+                lng: 6.6439
+            },
+            {
+                id: "p114",
+                name: "Brecht Caravan",
+                address: "Lämlinstraße 13",
+                plz: "74080",
+                city: "Heilbronn",
+                region: "Baden-Württemberg",
+                phone: "07131 382780",
+                email: "info@brecht-caravan.de",
+                website: "brecht-caravan.de",
+                lat: 49.1427,
+                lng: 9.2109
+            },
+            {
+                id: "p115",
+                name: "FRANZ MARTIN KFZ Technik & Handels GmbH",
+                address: "Am Elbsee 3",
+                plz: "87648",
+                city: "Aitrang",
+                region: "Bayern",
+                phone: "08343 9238470",
+                email: "franz.martin@hotmail.de",
+                website: "franzmartinkfz-technik.go1a.de",
+                lat: 47.8639,
+                lng: 10.5083
+            },
+            {
+                id: "p116",
+                name: "Batari Fahrzeugbau",
+                address: "Vogteistraße 15",
+                plz: "89446",
+                city: "Ziertheim-Dattenhausen",
+                region: "Bayern",
+                phone: "+49 9076 918 02 67",
+                email: "info@batari.de",
+                website: "www.batari-fahrzeugbau.de",
+                lat: 48.6917,
+                lng: 10.4583
+            },
+            {
+                id: "p117",
+                name: "Caravan Center Thüringen GmbH",
+                address: "Prüssingstraße 20",
+                plz: "07745",
+                city: "Jena",
+                region: "Thüringen",
+                phone: "03641 60 77 41",
+                email: "info@caravancenter-thueringen.de",
+                website: "www.caravancenter-thueringen.de",
+                lat: 50.9273,
+                lng: 11.5893
+            },
+            {
+                id: "p118",
+                name: "TempCamp",
+                address: "Ketzerweg 3",
+                plz: "67105",
+                city: "Schifferstadt",
+                region: "Rheinland-Pfalz",
+                phone: "+49 (0) 170 340 91 07",
+                email: "martin.bernatz@tempcamp.de",
+                website: "https://tempcamp.de",
+                lat: 49.3853,
+                lng: 8.3752
+            },
+            {
+                id: "p119",
+                name: "CamperService Reuss",
+                address: "Am Grohberg 4",
+                plz: "97705",
+                city: "Lauter",
+                region: "Bayern",
+                phone: "09734 / 248",
+                email: "camperservice-reuss@gmx.net",
+                lat: 50.1833,
+                lng: 10.1333
+            },
+            {
+                id: "p120",
+                name: "Koch-Mobil",
+                address: "Kirchgasse 8",
+                plz: "54533",
+                city: "Niederöfflingen",
+                region: "Rheinland-Pfalz",
+                phone: "06574 / 9009 830",
+                email: "info@wohnmobilumbau.de",
+                website: "www.wohnmobilausbau.com",
+                lat: 49.9667,
+                lng: 6.9500
+            },
+            {
+                id: "p121",
+                name: "Campers' Checkpoint",
+                address: "Adam-Stegerwald-Str. 16",
+                plz: "97447",
+                city: "Gerolzhofen",
+                region: "Bayern",
+                phone: "09382 31 99 160",
+                email: "info@campers-checkpoint.de",
+                website: "www.campers-checkpoint.de",
+                lat: 49.9003,
+                lng: 10.3486
+            },
+            {
+                id: "p122",
+                name: "Ehlers Mobile Welten GmbH & Co. KG",
+                address: "Heinrich-Evers-Straße 2-5",
+                plz: "21769",
+                city: "Lamstedt",
+                region: "Niedersachsen",
+                phone: "(0 47 73) 87 94 625",
+                email: "hw@ehlers-reisemobile.de",
+                website: "www.ehlers-reisemobile.de",
+                lat: 53.6333,
+                lng: 9.0833
+            },
+            {
+                id: "p123",
+                name: "Meitz ACT GmbH",
+                address: "In der Steinwiese 12",
+                plz: "57074",
+                city: "Siegen",
+                region: "Nordrhein-Westfalen",
+                phone: "02 71 31 31 293-0",
+                email: "service@meitz-act.de",
+                website: "www.meitz-act.de",
+                lat: 50.8748,
+                lng: 8.0207
+            },
+            {
+                id: "p124",
+                name: "Rhönspecht GmbH",
+                address: "Am Forsthaus 9",
+                plz: "36163",
+                city: "Poppenhausen",
+                region: "Hessen",
+                phone: "+49 176 24875965",
+                email: "info@rhoenspecht.de",
+                website: "rhoenspecht.de",
+                lat: 50.4920,
+                lng: 9.8666
+            },
+            {
+                id: "p125",
+                name: "FMC Schneider",
+                address: "Im Sülzeteiche 32",
+                plz: "38820",
+                city: "Halberstadt",
+                region: "Sachsen-Anhalt",
+                phone: "03941 24 0 27",
+                email: "marco.schneider@fmc-schneider.de",
+                website: "www.fmc-schneider.de",
+                lat: 51.8958,
+                lng: 11.0467
+            },
+            {
+                id: "p126",
+                name: "autarker.de",
+                address: "Esterndorf 7",
+                plz: "84405",
+                city: "Dorfen",
+                region: "Bayern",
+                phone: "+49 8081 604 70-0",
+                email: "info@autarker.de",
+                website: "www.autarker.de",
+                lat: 48.2667,
+                lng: 12.1500
+            },
+            {
+                id: "p127",
+                name: "Stefans Camperhilfe",
+                address: "",
+                plz: "",
+                city: "",
+                region: "Deutschland",
+                phone: "0176 73740598",
+                email: "info@stefans-camperhilfe.de",
+                lat: 51.1657,
+                lng: 10.4515
+            },
+            {
+                id: "p128",
+                name: "Caravan- & KFZ-Technik Hermann",
+                address: "Haydnstraße 9",
+                plz: "71686",
+                city: "Remseck",
+                region: "Baden-Württemberg",
+                phone: "+49 7146 285211",
+                email: "norberthermann@t-online.de",
+                website: "www.ckthermann.de",
+                lat: 48.8694,
+                lng: 9.2667
+            },
+            {
+                id: "p129",
+                name: "Caravan Center Niederaula",
+                address: "Im Seckenbiegen 1",
+                plz: "36272",
+                city: "Niederaula",
+                region: "Hessen",
+                phone: "06625 7644",
+                email: "info@caravan-center-niederaula.de",
+                website: "www.caravan-center-niederaula.de",
+                lat: 50.8017,
+                lng: 9.5933
+            },
+            {
+                id: "p130",
+                name: "SEKE Freizeitmobile-Service",
+                address: "Siemensstr. 5",
+                plz: "76448",
+                city: "Durmersheim",
+                region: "Baden-Württemberg",
+                phone: "07245 82107",
+                email: "info@seke-freizeitmobile.de",
+                website: "www.seke-freizeitmobile.de",
+                lat: 48.9340,
+                lng: 8.4944
+            },
+            {
+                id: "p131",
+                name: "Campermanufaktur Würzburg",
+                address: "Sonnleite 11",
+                plz: "97270",
+                city: "Kist",
+                region: "Bayern",
+                phone: "+49 9306 9853700",
+                email: "eugen.braun@campermanufaktur-wuerzburg.de",
+                website: "campermanufaktur-wuerzburg.de",
+                lat: 49.7439,
+                lng: 9.8408
+            },
+            {
+                id: "p132",
+                name: "Freizeitcenter Goebel",
+                address: "Jahnstr. 51",
+                plz: "63814",
+                city: "Mainaschaff",
+                region: "Bayern",
+                phone: "06021 73135",
+                email: "amg@freizeitcenter-goebel.de",
+                website: "www.freizeitcenter-goebel.de",
+                lat: 50.0014,
+                lng: 9.0742
+            },
+            {
+                id: "p133",
+                name: "Hünerkopf GmbH & Co. KG",
+                address: "Weinbergstraße 11",
+                plz: "34626",
+                city: "Neukirchen",
+                region: "Hessen",
+                phone: "+49 6694 96060",
+                email: "info@huenerkopf.com",
+                website: "www.huenerkopf.com",
+                lat: 50.8667,
+                lng: 9.3333
+            },
+            {
+                id: "p134",
+                name: "Luxus-Wohnmobilvermietung Breslau",
+                address: "",
+                plz: "",
+                city: "Breslau",
+                region: "Polen",
+                phone: "+48 734 437 745",
+                website: "thecampers.pl",
+                lat: 51.1079,
+                lng: 17.0385
+            },
+            {
+                id: "p135",
+                name: "Wohnmobildoktor",
+                address: "Breitenloher Weg 11",
+                plz: "91166",
+                city: "Georgensgmünd",
+                region: "Bayern",
+                phone: "09172 7002260",
+                email: "info@freimotec.de",
+                website: "www.wohnmobildoktor.de",
+                lat: 49.1906,
+                lng: 11.0128
+            },
+            {
+                id: "p136",
+                name: "Caravan Rosier",
+                address: "Fritz-Husemann-Straße 7a",
+                plz: "59199",
+                city: "Bönen",
+                region: "Nordrhein-Westfalen",
+                phone: "02383 9169555",
+                email: "info@caravan-rosier.de",
+                website: "https://caravan-rosier.com",
+                lat: 51.5989,
+                lng: 7.7603
+            },
+            {
+                id: "p137",
+                name: "Vamper",
+                address: "Mühlenbecker Straße 8b",
+                plz: "16348",
+                city: "Wandlitz (OT Schönerlinde)",
+                region: "Brandenburg",
+                phone: "030 233279500",
+                email: "hallo@vamper.de",
+                website: "https://vamper.de",
+                lat: 52.6333,
+                lng: 13.4500
+            },
+            {
+                id: "p138",
+                name: "Mattern GmbH",
+                address: "Branchweilerhofstraße 91",
+                plz: "67433",
+                city: "Neustadt an der Weinstraße",
+                region: "Rheinland-Pfalz",
+                phone: "06321 961 300 800",
+                email: "info@autovermietung-mattern.de",
+                website: "www.mattern-bewegt.de",
+                lat: 49.3501,
+                lng: 8.1381
+            },
+            {
+                id: "p139",
+                name: "Caravan Skopp",
+                address: "Quergasse 1",
+                plz: "01612",
+                city: "Glaubitz",
+                region: "Sachsen",
+                phone: "035265 56584",
+                email: "info@caravanskopp.de",
+                website: "www.caravanskopp.de",
+                lat: 51.3167,
+                lng: 13.5333
+            },
+            {
+                id: "p140",
+                name: "Mobiler Service für Freizeitfahrzeuge Michael Geist",
+                address: "Weinstr. 37",
+                plz: "74235",
+                city: "Erlenbach",
+                region: "Baden-Württemberg",
+                phone: "0170 1659500",
+                email: "m.geist@mpamg.de",
+                lat: 49.1747,
+                lng: 9.1589
+            },
+            {
+                id: "p141",
+                name: "Camping-Center.eu",
+                address: "Oberfeld 12b",
+                plz: "79793",
+                city: "Wutöschingen-Horheim",
+                region: "Baden-Württemberg",
+                phone: "07746 71194-0",
+                email: "hero@camping-center.eu",
+                website: "https://www.camping-center.eu",
+                lat: 47.6464,
+                lng: 8.3681
+            },
+            {
+                id: "p142",
+                name: "Rauert Reisemobile GmbH",
+                address: "Vosskamp 5",
+                plz: "26655",
+                city: "Westerstede-Moorburg",
+                region: "Niedersachsen",
+                phone: "04488 861800",
+                email: "info@rauert-reisemobile.de",
+                website: "https://www.rauert-reisemobile.de",
+                lat: 53.2500,
+                lng: 7.9333
+            },
+            {
+                id: "p143",
+                name: "Vos Voertuig Service",
+                address: "",
+                plz: "",
+                city: "",
+                region: "Niederlande",
+                phone: "0572 853 552",
+                email: "info@vosmobielservice.nl",
+                website: "https://vosmobielservice.nl",
+                lat: 52.3676,
+                lng: 4.9041
+            },
+            {
+                id: "p144",
+                name: "Autohaus Wenger Kuchl",
+                address: "Moos 83",
+                plz: "5431",
+                city: "Kuchl",
+                region: "Österreich",
+                phone: "+43 6244 4310",
+                email: "kuchl@autohaus-wenger.at",
+                website: "www.autohaus-wenger.at",
+                lat: 47.6289,
+                lng: 13.1481
+            },
+            {
+                id: "p145",
+                name: "Autohaus Wenger Salzburg",
+                address: "Vogelweiderstr. 116",
+                plz: "5020",
+                city: "Salzburg",
+                region: "Österreich",
+                phone: "+43 662 870021",
+                email: "salzburg@autohaus-wenger.at",
+                website: "www.autohaus-wenger.at",
+                lat: 47.8095,
+                lng: 13.0550
+            },
+            {
+                id: "p146",
+                name: "maincamp – Camping erleben",
+                address: "Spitzwasen 2",
+                plz: "97340",
+                city: "Marktbreit",
+                region: "Bayern",
+                phone: "+49 9332 5077-0",
+                email: "info@maincamp.de",
+                website: "https://maincamp.de",
+                lat: 49.6653,
+                lng: 10.1425
+            },
+            {
+                id: "p147",
+                name: "Caravan Gärtner Halle",
+                address: "Alte Schulstraße 3",
+                plz: "06184",
+                city: "Kabelsketal",
+                region: "Sachsen-Anhalt",
+                phone: "+49 345 560 48 27",
+                email: "halle@caravan-gaertner.de",
+                website: "www.caravan-gaertner.de",
+                lat: 51.4167,
+                lng: 12.0333
+            },
+            {
+                id: "p148",
+                name: "Autoservice Meißner",
+                address: "Lerchenbreite 11/15",
+                plz: "38889",
+                city: "Blankenburg",
+                region: "Sachsen-Anhalt",
+                phone: "+49 3944 36 25 127",
+                email: "teile@asm-automobile.de",
+                website: "www.asm-automobile.de",
+                lat: 51.7908,
+                lng: 10.9597
+            },
+            {
+                id: "p149",
+                name: "Reisemobil-Caravan Herzog OHG",
+                address: "Schmaligweg 4 - 6",
+                plz: "37079",
+                city: "Göttingen",
+                region: "Niedersachsen",
+                phone: "+49 551 61 304",
+                email: "info@campingherzog.de",
+                website: "www.campingherzog.de",
+                lat: 51.5339,
+                lng: 9.9356
+            },
+            {
+                id: "p150",
+                name: "Wohnwagen Becker GmbH & Co. KG",
+                address: "Dörnbergstraße 15-17",
+                plz: "34233",
+                city: "Fuldatal OT Ihringshausen",
+                region: "Hessen",
+                phone: "+49 561 981 67 - 72",
+                email: "werkstatt-service@wohnwagen-becker.de",
+                website: "www.wohnwagen-becker.de",
+                lat: 51.3833,
+                lng: 9.5667
+            },
+            {
+                id: "p151",
+                name: "Camperfektion",
+                address: "An der Automeile 20a",
+                plz: "35394",
+                city: "Gießen",
+                region: "Hessen",
+                phone: "+49 176 204 303 01",
+                email: "info@camperfektion.de",
+                website: "www.camperfektion.de",
+                lat: 50.5876,
+                lng: 8.6784
+            },
+            {
+                id: "p152",
+                name: "Scholz Fahrzeugservice GmbH",
+                address: "Brentanostr. 10",
+                plz: "63755",
+                city: "Alzenau",
+                region: "Bayern",
+                phone: "+49 6023 97 33 - 0",
+                email: "b.hauff@scholz-alzenau.de",
+                website: "www.scholz-alzenau.de",
+                lat: 50.0878,
+                lng: 9.0744
+            },
+            {
+                id: "p153",
+                name: "Reisemobile Weber",
+                address: "Lehengraben 18",
+                plz: "95463",
+                city: "Bindlach/Bayreuth",
+                region: "Bayern",
+                phone: "+49 9208 65 74 38 0",
+                email: "post@reisemobile-weber.de",
+                website: "www.reisemobileweber.de",
+                lat: 49.9833,
+                lng: 11.6167
+            },
+            {
+                id: "p154",
+                name: "Selzam AG",
+                address: "",
+                plz: "",
+                city: "",
+                region: "Schweiz",
+                phone: "+41 52 233 25 21",
+                email: "info@selzam.ch",
+                website: "www.selzam.ch",
+                lat: 47.5667,
+                lng: 7.6000
+            },
+            {
+                id: "p155",
+                name: "EliCamp Liepert GmbH",
+                address: "Heuwegring 10",
+                plz: "86679",
+                city: "Ellgau",
+                region: "Bayern",
+                phone: "+49 8273 6974 520",
+                email: "info@elicamp.de",
+                website: "www.elicamp.de",
+                lat: 48.4500,
+                lng: 10.9000
+            }
+        ];
+
+        // =====================================================
+        // Globale Variablen
+        // =====================================================
+        let map;
+        let markersCluster;
+        let markersById = new Map();
+        let activeMarkerId = null;
+        let selectedRegions = new Set();
+        let visiblePartners = new Set();
+
+        // =====================================================
+        // Map initialisieren
+        // =====================================================
+        function initMap() {
+            // Leaflet Map erstellen
+            map = L.map('partner-map', {
+                center: [51.1657, 10.4515], // Deutschland Zentrum
+                zoom: 6,
+                zoomControl: true,
+                scrollWheelZoom: true
+            });
+
+            // OpenStreetMap Tiles hinzufügen
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Marker Cluster Group erstellen
+            markersCluster = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 60,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 10) size = 'medium';
+                    if (count > 20) size = 'large';
+                    
+                    return new L.DivIcon({
+                        html: '<div><span>' + count + '</span></div>',
+                        className: 'marker-cluster marker-cluster-' + size,
+                        iconSize: new L.Point(40, 40)
+                    });
+                }
+            });
+
+            // Partner Marker hinzufügen
+            addPartnerMarkers();
+            
+            // Cluster zur Map hinzufügen
+            map.addLayer(markersCluster);
+
+            // Karte auf alle Marker ausrichten
+            if (partners.length > 0) {
+                const bounds = L.latLngBounds(partners
+                    .filter(p => p.lat && p.lng)
+                    .map(p => [p.lat, p.lng])
+                );
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // =====================================================
+        // Partner Marker erstellen
+        // =====================================================
+        function addPartnerMarkers() {
+            partners.forEach(partner => {
+                if (partner.lat && partner.lng) {
+                    // Custom Marker Icon - Original Design
+                    const markerIcon = L.divIcon({
+                        html: `<div class="custom-marker" id="marker-${partner.id}">
+                                <div class="custom-marker-content">${partner.name.charAt(0)}</div>
+                               </div>`,
+                        className: '',
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 28],
+                        popupAnchor: [0, -30]
+                    });
+
+                    // Marker erstellen
+                    const marker = L.marker([partner.lat, partner.lng], {
+                        icon: markerIcon,
+                        partnerId: partner.id
+                    });
+
+                    // Popup Content
+                    const popupContent = `
+                        <div class="map-popup">
+                            <h3 class="map-popup__title">${partner.name}</h3>
+                            <div class="map-popup__content">
+                                ${partner.address ? `
+                                <div class="map-popup__item">
+                                    <span class="map-popup__item-icon">📍</span>
+                                    <span class="map-popup__item-text">
+                                        ${partner.address}<br>
+                                        ${partner.plz} ${partner.city}
+                                    </span>
+                                </div>
+                                ` : ''}
+                                ${partner.phone ? `
+                                <div class="map-popup__item">
+                                    <span class="map-popup__item-icon">📞</span>
+                                    <a href="tel:${partner.phone}" class="map-popup__item-link map-popup__item-text">
+                                        ${partner.phone}
+                                    </a>
+                                </div>
+                                ` : ''}
+                                ${partner.email ? `
+                                <div class="map-popup__item">
+                                    <span class="map-popup__item-icon">✉️</span>
+                                    <a href="mailto:${partner.email}" class="map-popup__item-link map-popup__item-text">
+                                        ${partner.email}
+                                    </a>
+                                </div>
+                                ` : ''}
+                                ${partner.website ? `
+                                <div class="map-popup__item">
+                                    <span class="map-popup__item-icon">🌐</span>
+                                    <a href="${partner.website.startsWith('http') ? partner.website : 'https://' + partner.website}" 
+                                       target="_blank" 
+                                       class="map-popup__item-link map-popup__item-text">
+                                        ${partner.website}
+                                    </a>
+                                </div>
+                                ` : ''}
+                                ${partner.hours ? `
+                                <div class="map-popup__item">
+                                    <span class="map-popup__item-icon">🕐</span>
+                                    <span class="map-popup__item-text">${partner.hours}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 300,
+                        className: 'custom-popup'
+                    });
+
+                    // Click Event
+                    marker.on('click', function() {
+                        selectPartner(partner.id);
+                    });
+
+                    // Marker in Map speichern
+                    markersById.set(partner.id, marker);
+                    markersCluster.addLayer(marker);
+                }
+            });
+        }
+
+        // =====================================================
+        // Partnerliste erstellen
+        // =====================================================
+        function renderPartnerList() {
+            const listElement = document.getElementById('partner-list');
+            listElement.innerHTML = '';
+
+            partners.forEach(partner => {
+                const li = document.createElement('li');
+                li.className = 'partner-item';
+                li.dataset.partnerId = partner.id;
+                li.dataset.region = partner.region;
+                li.dataset.searchText = `${partner.name} ${partner.city} ${partner.plz} ${partner.region}`.toLowerCase();
+
+                li.innerHTML = `
+                    <h3 class="partner-name">${partner.name}</h3>
+                    <div class="partner-meta">
+                        ${partner.city ? `
+                        <div class="partner-meta-item">
+                            <span>📍</span>
+                            <span>${partner.plz} ${partner.city}</span>
+                        </div>
+                        ` : ''}
+                        ${partner.phone ? `
+                        <div class="partner-meta-item">
+                            <span>📞</span>
+                            <span>${partner.phone}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <span class="partner-badge partner-badge--region">${partner.region}</span>
+                `;
+
+                // Click Event
+                li.addEventListener('click', () => selectPartner(partner.id));
+
+                listElement.appendChild(li);
+                visiblePartners.add(partner.id);
+            });
+
+            updateVisibleCount();
+        }
+
+        // =====================================================
+        // Partner auswählen
+        // =====================================================
+        function selectPartner(partnerId) {
+            // Vorherige Auswahl entfernen
+            deselectPartner();
+
+            // Neuen Partner aktivieren
+            activeMarkerId = partnerId;
+
+            // List Item highlighten
+            const listItem = document.querySelector(`[data-partner-id="${partnerId}"]`);
+            if (listItem) {
+                listItem.classList.add('partner-item--active');
+                listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Marker highlighten
+            const marker = markersById.get(partnerId);
+            if (marker) {
+                const markerElement = document.getElementById('marker-' + partnerId);
+                if (markerElement) {
+                    markerElement.classList.add('active');
+                }
+
+                // Zur Position zoomen
+                const partner = partners.find(p => p.id === partnerId);
+                if (partner && partner.lat && partner.lng) {
+                    map.setView([partner.lat, partner.lng], 14, {
+                        animate: true,
+                        duration: 0.5
+                    });
+                    
+                    // Popup öffnen
+                    setTimeout(() => {
+                        marker.openPopup();
+                    }, 500);
+                }
+            }
+        }
+
+        // =====================================================
+        // Partner Auswahl aufheben
+        // =====================================================
+        function deselectPartner() {
+            if (activeMarkerId) {
+                // List Item deaktivieren
+                const listItem = document.querySelector(`[data-partner-id="${activeMarkerId}"]`);
+                if (listItem) {
+                    listItem.classList.remove('partner-item--active');
+                }
+
+                // Marker deaktivieren
+                const markerElement = document.getElementById('marker-' + activeMarkerId);
+                if (markerElement) {
+                    markerElement.classList.remove('active');
+                }
+
+                activeMarkerId = null;
+            }
+        }
+
+        // =====================================================
+        // Steuerelemente initialisieren
+        // =====================================================
+        function initializeControls() {
+            // Suche
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', debounce(handleSearch, 300));
+
+            // Filter
+            initializeFilter();
+
+            // Reset-Button
+            const resetButton = document.getElementById('resetButton');
+            resetButton.addEventListener('click', resetAll);
+        }
+
+        // =====================================================
+        // Filter initialisieren
+        // =====================================================
+        function initializeFilter() {
+            const filterButton = document.getElementById('filterButton');
+            const filterMenu = document.getElementById('filterMenu');
+
+            // Regionen sammeln
+            const regions = [...new Set(partners.map(p => p.region))].sort();
+
+            // Filter-Optionen erstellen
+            regions.forEach(region => {
+                const option = document.createElement('div');
+                option.className = 'filter-option';
+                option.innerHTML = `
+                    <input type="checkbox" id="region-${region}" value="${region}">
+                    <label for="region-${region}">${region}</label>
+                `;
+
+                const checkbox = option.querySelector('input');
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        selectedRegions.add(region);
+                    } else {
+                        selectedRegions.delete(region);
+                    }
+                    applyFilters();
+                });
+
+                filterMenu.appendChild(option);
+            });
+
+            // Filter-Button Toggle
+            filterButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                filterMenu.classList.toggle('show');
+            });
+
+            // Menü schließen beim Klick außerhalb
+            document.addEventListener('click', () => {
+                filterMenu.classList.remove('show');
+            });
+
+            filterMenu.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+
+        // =====================================================
+        // Suche verarbeiten
+        // =====================================================
+        function handleSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            applyFilters(searchTerm);
+        }
+
+        // =====================================================
+        // Filter anwenden
+        // =====================================================
+        function applyFilters(searchTerm = '') {
+            const listItems = document.querySelectorAll('.partner-item');
+            visiblePartners.clear();
+
+            // Wenn kein Suchbegriff, verwende den aktuellen Wert
+            if (!searchTerm) {
+                searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            }
+
+            listItems.forEach(item => {
+                const partnerId = item.dataset.partnerId;
+                const region = item.dataset.region;
+                const searchText = item.dataset.searchText;
+
+                // Prüfe Suchbegriff
+                const matchesSearch = !searchTerm || searchText.includes(searchTerm);
+
+                // Prüfe Region-Filter
+                const matchesRegion = selectedRegions.size === 0 || selectedRegions.has(region);
+
+                // Element ein-/ausblenden
+                if (matchesSearch && matchesRegion) {
+                    item.classList.remove('partner-item--hidden');
+                    visiblePartners.add(partnerId);
+                } else {
+                    item.classList.add('partner-item--hidden');
+                }
+            });
+
+            // Marker auf Karte aktualisieren
+            updateMapMarkers();
+
+            // Filter-Counter aktualisieren
+            const filterCount = document.getElementById('filterCount');
+            const filterButton = document.getElementById('filterButton');
+            if (selectedRegions.size > 0) {
+                filterCount.textContent = `(${selectedRegions.size})`;
+                filterCount.style.display = 'inline';
+                filterButton.classList.add('active');
+            } else {
+                filterCount.style.display = 'none';
+                filterButton.classList.remove('active');
+            }
+
+            // Anzahl aktualisieren
+            updateVisibleCount();
+
+            // Keine Ergebnisse anzeigen
+            showNoResultsMessage();
+        }
+
+        // =====================================================
+        // Karten-Marker aktualisieren
+        // =====================================================
+        function updateMapMarkers() {
+            markersCluster.clearLayers();
+
+            markersById.forEach((marker, partnerId) => {
+                if (visiblePartners.has(partnerId)) {
+                    markersCluster.addLayer(marker);
+                }
+            });
+
+            // Karte auf sichtbare Marker zoomen
+            if (visiblePartners.size > 0) {
+                const visibleBounds = [];
+                partners.forEach(partner => {
+                    if (visiblePartners.has(partner.id) && partner.lat && partner.lng) {
+                        visibleBounds.push([partner.lat, partner.lng]);
+                    }
+                });
+                
+                if (visibleBounds.length > 0) {
+                    map.fitBounds(visibleBounds, { padding: [50, 50] });
+                }
+            }
+        }
+
+        // =====================================================
+        // Anzahl der sichtbaren Partner aktualisieren
+        // =====================================================
+        function updateVisibleCount() {
+            const visibleCount = document.getElementById('visibleCount');
+            visibleCount.textContent = visiblePartners.size;
+        }
+
+        // =====================================================
+        // "Keine Ergebnisse" Nachricht
+        // =====================================================
+        function showNoResultsMessage() {
+            const listElement = document.getElementById('partner-list');
+            const existingMessage = listElement.querySelector('.no-results');
+
+            if (visiblePartners.size === 0) {
+                if (!existingMessage) {
+                    const message = document.createElement('div');
+                    message.className = 'no-results';
+                    message.innerHTML = `
+                        <div class="no-results__icon">🔍</div>
+                        <div>Keine Einbaupartner gefunden</div>
+                        <div style="font-size: 12px; margin-top: 8px;">Versuchen Sie es mit anderen Suchbegriffen oder Filtern</div>
+                    `;
+                    listElement.appendChild(message);
+                }
+            } else if (existingMessage) {
+                existingMessage.remove();
+            }
+        }
+
+        // =====================================================
+        // Alles zurücksetzen
+        // =====================================================
+        function resetAll() {
+            // Suche zurücksetzen
+            document.getElementById('searchInput').value = '';
+
+            // Filter zurücksetzen
+            selectedRegions.clear();
+            document.querySelectorAll('.filter-option input').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            // Auswahl aufheben
+            deselectPartner();
+
+            // Filter anwenden
+            applyFilters();
+
+            // Karte zurücksetzen
+            if (partners.length > 0) {
+                const bounds = L.latLngBounds(partners
+                    .filter(p => p.lat && p.lng)
+                    .map(p => [p.lat, p.lng])
+                );
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // =====================================================
+        // Hilfsfunktionen
+        // =====================================================
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.add('hidden');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+
+        // =====================================================
+        // App initialisieren
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Map initialisieren
+            initMap();
+            
+            // Partnerliste rendern
+            renderPartnerList();
+            
+            // Steuerelemente initialisieren
+            initializeControls();
+            
+            // Loading Overlay ausblenden
+            setTimeout(hideLoadingOverlay, 500);
+        });
+    </script>
+</body>
+</html>
