@@ -401,6 +401,31 @@
             text-decoration: underline;
         }
 
+        .cluster-popup {
+            list-style: none;
+            margin: 8px 0 0;
+            padding: 0;
+        }
+
+        .cluster-popup__item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .cluster-popup__item span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .cluster-popup__item:hover {
+            background: var(--primary-light);
+        }
+
         .no-results {
             text-align: center;
             padding: 40px 20px;
@@ -1167,7 +1192,7 @@
                 region: "Bayern",
                 address: "Esterndorf 7, 84405 Dorfen",
                 phone: "+49 8081 604 70-0",
-                email: "info@autarker.de",
+                email: "service@autarker.de",
                 website: "www.autarker.de",
                 lat: 48.267428,
                 lng: 12.090416
@@ -1631,6 +1656,122 @@
                 website: "www.jumbo-kfz-paulussen.de",
                 lat: 51.1639978,
                 lng: 6.4590279
+            },
+            {
+                id: "p170",
+                name: "Camping di Michele",
+                region: "Baden-Württemberg",
+                address: "Nonnenweg 5, 72131 Ofterdingen",
+                phone: "+49 151 52745601",
+                email: "dimichele@live.de",
+                lat: 48.4192317,
+                lng: 9.0411737
+            },
+            {
+                id: "p171",
+                name: "Camperreich",
+                region: "Schweiz",
+                address: "Karmaad 9, 9473 Gams, Schweiz",
+                phone: "+41 81 552 00 01",
+                email: "info@camperreich.ch",
+                website: "www.camperreich.ch",
+                lat: 47.2047712,
+                lng: 9.4526608
+            },
+            {
+                id: "p172",
+                name: "Caravan Service-Center Barrien",
+                region: "Niedersachsen",
+                address: "Handwerkerhof 10, 28857 Syke-Barrien",
+                phone: "+49 4242 780044",
+                email: "info@cscb.eu",
+                lat: 52.949174,
+                lng: 8.8359275
+            },
+            {
+                id: "p173",
+                name: "Wohnmobile Heunsch",
+                region: "Thüringen",
+                address: "Schützenstr. 1, 98527 Suhl",
+                phone: "+49 3681 455560",
+                email: "wohnmobile@heunsch.de",
+                website: "www.wohnmobile-heunsch.de",
+                lat: 50.5890253,
+                lng: 10.7192907
+            },
+            {
+                id: "p174",
+                name: "Camperfactum",
+                region: "Baden-Württemberg",
+                address: "Hauptstr. 59, 78253 Eigeltingen",
+                phone: "+49 151 12952783",
+                email: "info@camperfactum.de",
+                website: "www.camperfactum.de",
+                lat: 47.857276,
+                lng: 8.8926914
+            },
+            {
+                id: "p175",
+                name: "Camper Aquafeeling (mobiler Service)",
+                region: "Rheinland-Pfalz",
+                address: "Mobiler Service, 67227 Frankenthal (Pfalz)",
+                phone: "+49 1575 7836602",
+                email: "caf-sipp@gmx.de",
+                website: "www.camper-aquafeeling.de",
+                lat: 49.5341,
+                lng: 8.353
+            },
+            {
+                id: "p176",
+                name: "JR Reisemobile",
+                region: "Hessen",
+                address: "Philipp-Reis-Straße 23, 63477 Maintal",
+                phone: "+49 69 40807711",
+                website: "www.jr-reisemobile.de",
+                lat: 50.1432101,
+                lng: 8.845271
+            },
+            {
+                id: "p177",
+                name: "Popko Wohnmobile",
+                region: "Bayern",
+                address: "Ulmer Str. 76, 89312 Günzburg",
+                phone: "+49 8221 8641",
+                email: "info@popko-wohnmobile.de",
+                website: "www.popko-wohnmobile.de",
+                lat: 48.4530958,
+                lng: 10.2599411
+            },
+            {
+                id: "p178",
+                name: "CarWo Dresden",
+                region: "Sachsen",
+                address: "Am Galgenberg 30/46, 01257 Dresden",
+                phone: "+49 351 27090660",
+                website: "www.carwo.de",
+                lat: 50.9937285,
+                lng: 13.801132
+            },
+            {
+                id: "p179",
+                name: "CarWo Rhein-Ruhr",
+                region: "Nordrhein-Westfalen",
+                address: "Kölner Str. 73 (B1), 45481 Mülheim an der Ruhr",
+                phone: "+49 208 8484321",
+                website: "www.carwo.de",
+                lat: 51.3975731,
+                lng: 6.8757055
+            },
+            {
+                id: "p180",
+                name: "Wick Hellmobil",
+                region: "Nordrhein-Westfalen",
+                address: "Köbbinghauser Hammer 1, 58840 Plettenberg",
+                phone: "+49 2391 10824",
+                email: "info@wick-hellmobil.de",
+                website: "www.wick-hellmobil.de",
+                lat: 51.1987839,
+                lng: 7.8344945
             }
         ];
 
@@ -1646,9 +1787,13 @@
                 let locationSegment = addressParts[addressParts.length - 1] || '';
 
                 if (!partner.plz) {
-                    const postalMatch = locationSegment.match(postalCodePattern);
-                    if (postalMatch) {
-                        partner.plz = postalMatch[0];
+                    for (let i = addressParts.length - 1; i >= 0; i--) {
+                        const postalMatch = addressParts[i].match(postalCodePattern);
+                        if (postalMatch) {
+                            partner.plz = postalMatch[0];
+                            locationSegment = addressParts[i];
+                            break;
+                        }
                     }
                 }
 
@@ -1670,7 +1815,7 @@
             }
 
             const postalLine = [partner.plz, partner.city].filter(Boolean).join(' ').trim();
-            if (postalLine && lines[lines.length - 1] !== postalLine) {
+            if (postalLine && !(partner.address || '').includes(postalLine)) {
                 lines.push(postalLine);
             }
 
@@ -1690,6 +1835,7 @@
         let visiblePartners = new Set();
         let nearestPartnerMode = false;
         let searchLocation = null;
+        const NEARBY_RESULTS = 5;
 
         // =====================================================
         // Map initialisieren
@@ -1712,7 +1858,8 @@
             // Marker Cluster Group erstellen
             markersCluster = L.markerClusterGroup({
                 showCoverageOnHover: false,
-                maxClusterRadius: 60,
+                zoomToBoundsOnClick: false,
+                maxClusterRadius: 40,
                 iconCreateFunction: function(cluster) {
                     const count = cluster.getChildCount();
                     let size = 'small';
@@ -1725,6 +1872,40 @@
                         iconSize: new L.Point(40, 40)
                     });
                 }
+            });
+
+            // Klick auf Cluster: kleine Gruppen als Liste zeigen (statt weit wegzuzoomen),
+            // große Gruppen wie gewohnt aufzoomen
+            markersCluster.on('clusterclick', function(e) {
+                const cluster = e.layer;
+                const children = cluster.getAllChildMarkers();
+                if (children.length <= 6) {
+                    const items = children.map(m => {
+                        const p = partners.find(x => x.id === m.options.partnerId);
+                        if (!p) return '';
+                        const place = [p.plz, p.city].filter(Boolean).join(' ') || p.region;
+                        return `<li class="cluster-popup__item" data-partner-id="${p.id}">
+                                    <strong>${p.name}</strong><span>${place}</span>
+                                </li>`;
+                    }).join('');
+                    L.popup({ className: 'custom-popup', maxWidth: 300 })
+                        .setLatLng(cluster.getLatLng())
+                        .setContent(`<div class="map-popup"><h3 class="map-popup__title">${children.length} Einbaupartner hier</h3><ul class="cluster-popup">${items}</ul></div>`)
+                        .openOn(map);
+                } else {
+                    cluster.zoomToBounds({ padding: [40, 40] });
+                }
+            });
+
+            map.on('popupopen', function(e) {
+                const el = e.popup.getElement();
+                if (!el) return;
+                el.querySelectorAll('.cluster-popup__item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        map.closePopup();
+                        selectPartner(item.dataset.partnerId);
+                    });
+                });
             });
 
             // Partner Marker hinzufügen
@@ -1846,6 +2027,7 @@
                 li.className = 'partner-item';
                 li.dataset.partnerId = partner.id;
                 li.dataset.region = partner.region;
+                li.dataset.plz = partner.plz || '';
                 li.dataset.searchText = `${partner.name} ${partner.city || ''} ${partner.plz || ''} ${partner.address || ''} ${partner.region}`.toLowerCase();
 
                 const locationLines = getLocationLines(partner);
@@ -2017,7 +2199,7 @@
                 }
 
                 const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=de,at,ch,pl,nl,it`,
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=de,at,ch,pl,nl,it,be,lu`,
                     {
                         headers: {
                             'User-Agent': 'Einbaupartner-Karte'
@@ -2095,41 +2277,63 @@
                 renderPartnerList();
             }
             
-            // Normale Textsuche zuerst
+            const isPostalCode = /^\d+$/.test(searchTerm);
+            const isFullGermanPostalCode = /^\d{5}$/.test(searchTerm);
+
+            // Vollständige PLZ: immer die nächstgelegenen Partner zeigen ("in der Nähe")
+            if (isFullGermanPostalCode) {
+                await searchNearby(searchTerm);
+                return;
+            }
+
+            // Normale Textsuche zuerst (Ziffern = Anfang der PLZ)
             applyFilters(searchTerm.toLowerCase());
-            
-            // Wenn keine Ergebnisse und Suchbegriff vorhanden, versuche Geocoding
-            if (visiblePartners.size === 0 && searchTerm) {
-                // Prüfe ob es wie eine Adresse/PLZ/Stadt aussieht
-                const looksLikeLocation = /^\d{4,5}|[a-zA-ZäöüÄÖÜß\s-]+$/.test(searchTerm);
-                
-                if (looksLikeLocation) {
-                    // Zeige Ladeanzeige
-                    const listElement = document.getElementById('partner-list');
-                    const loadingMsg = document.createElement('div');
-                    loadingMsg.className = 'no-results';
-                    loadingMsg.id = 'geocoding-loading';
-                    loadingMsg.innerHTML = `
-                        <div class="no-results__icon">🔍</div>
-                        <div>Suche nach nächstem Partner...</div>
-                    `;
-                    listElement.innerHTML = '';
-                    listElement.appendChild(loadingMsg);
-                    
-                    // Geocoding durchführen
-                    const location = await geocodeAddress(searchTerm);
-                    
-                    // Ladeanzeige entfernen
-                    loadingMsg.remove();
-                    
-                    if (location) {
-                        searchLocation = location;
-                        findNearestPartner(location.lat, location.lng);
-                    } else {
-                        // Keine Koordinaten gefunden, normale "keine Ergebnisse" Nachricht
-                        applyFilters(searchTerm.toLowerCase());
-                    }
-                }
+
+            if (visiblePartners.size === 0 && isPostalCode) {
+                showPostalCodeHint();
+                return;
+            }
+
+            // Keine Treffer bei Ort/Adresse: per Geocoding die nächsten Partner suchen
+            if (visiblePartners.size === 0 && /[a-zA-ZäöüÄÖÜß]/.test(searchTerm)) {
+                await searchNearby(searchTerm);
+            }
+        }
+
+        async function searchNearby(searchTerm) {
+            const listElement = document.getElementById('partner-list');
+            listElement.innerHTML = `
+                <div class="no-results" id="geocoding-loading">
+                    <div class="no-results__icon">🔍</div>
+                    <div>Suche Einbaupartner in der Nähe...</div>
+                </div>
+            `;
+
+            const location = await geocodeAddress(searchTerm);
+
+            // Inzwischen weitergetippt? Dann dieses Ergebnis verwerfen
+            if (document.getElementById('searchInput').value.trim() !== searchTerm) {
+                return;
+            }
+
+            if (location) {
+                searchLocation = location;
+                findNearestPartner(location.lat, location.lng);
+            } else {
+                renderPartnerList();
+                applyFilters(searchTerm.toLowerCase());
+            }
+        }
+
+        function showPostalCodeHint() {
+            const listElement = document.getElementById('partner-list');
+            const existingMessage = listElement.querySelector('.no-results');
+            if (existingMessage) {
+                existingMessage.innerHTML = `
+                    <div class="no-results__icon">📮</div>
+                    <div>Kein Partner mit PLZ ${document.getElementById('searchInput').value.trim()}…</div>
+                    <div style="font-size: 12px; margin-top: 8px;">Gib deine vollständige Postleitzahl ein – wir zeigen dir die nächstgelegenen Einbaupartner.</div>
+                `;
             }
         }
 
@@ -2159,28 +2363,21 @@
                 return;
             }
             
-            // Nächsten Partner finden (berücksichtige Region-Filter)
-            let nearestPartner = null;
-            for (const { partner, distance } of partnersWithDistance) {
-                const matchesRegion = selectedRegions.size === 0 || selectedRegions.has(partner.region);
-                if (matchesRegion) {
-                    nearestPartner = { partner, distance };
-                    break;
-                }
+            // Nächste Partner finden (berücksichtige Region-Filter)
+            let nearest = partnersWithDistance.filter(({ partner }) =>
+                selectedRegions.size === 0 || selectedRegions.has(partner.region)
+            );
+            if (nearest.length === 0) {
+                nearest = partnersWithDistance;
             }
-            
-            // Falls kein Partner die Region-Filter erfüllt, nimm den nächsten
-            if (!nearestPartner) {
-                nearestPartner = partnersWithDistance[0];
-            }
-            
-            // Partner anzeigen
-            visiblePartners.add(nearestPartner.partner.id);
-            
+            nearest = nearest.slice(0, NEARBY_RESULTS);
+
+            nearest.forEach(({ partner }) => visiblePartners.add(partner.id));
+
             // Liste aktualisieren
             const listElement = document.getElementById('partner-list');
             listElement.innerHTML = '';
-            
+
             // Info-Nachricht
             const infoMsg = document.createElement('div');
             infoMsg.className = 'no-results';
@@ -2189,52 +2386,57 @@
             infoMsg.style.padding = '16px';
             infoMsg.style.marginBottom = '12px';
             infoMsg.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 4px;">📍 Nächster Einbaupartner</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">📍 Einbaupartner in deiner Nähe</div>
                 <div style="font-size: 12px; color: var(--muted);">
-                    ${Math.round(nearestPartner.distance * 10) / 10} km entfernt
+                    Sortiert nach Entfernung
                 </div>
             `;
             listElement.appendChild(infoMsg);
-            
-            // Partner-Item erstellen
-            const li = document.createElement('li');
-            li.className = 'partner-item';
-            li.dataset.partnerId = nearestPartner.partner.id;
-            li.dataset.region = nearestPartner.partner.region;
-            
-            const locationLines = getLocationLines(nearestPartner.partner);
-            
-            li.innerHTML = `
-                <h3 class="partner-name">${nearestPartner.partner.name}</h3>
-                <div class="partner-meta">
-                    ${locationLines.length ? `
-                    <div class="partner-meta-item">
-                        <span>📍</span>
-                        <span>${locationLines.join('<br>')}</span>
+
+            nearest.forEach(({ partner, distance }) => {
+                const li = document.createElement('li');
+                li.className = 'partner-item';
+                li.dataset.partnerId = partner.id;
+                li.dataset.region = partner.region;
+
+                const locationLines = getLocationLines(partner);
+
+                li.innerHTML = `
+                    <h3 class="partner-name">${partner.name}</h3>
+                    <div class="partner-meta">
+                        <div class="partner-meta-item">
+                            <span>🚗</span>
+                            <span><strong>ca. ${Math.round(distance)} km</strong> entfernt</span>
+                        </div>
+                        ${locationLines.length ? `
+                        <div class="partner-meta-item">
+                            <span>📍</span>
+                            <span>${locationLines.join('<br>')}</span>
+                        </div>
+                        ` : ''}
+                        ${partner.phone ? `
+                        <div class="partner-meta-item">
+                            <span>📞</span>
+                            <span>${partner.phone}</span>
+                        </div>
+                        ` : ''}
                     </div>
-                    ` : ''}
-                    ${nearestPartner.partner.phone ? `
-                    <div class="partner-meta-item">
-                        <span>📞</span>
-                        <span>${nearestPartner.partner.phone}</span>
-                    </div>
-                    ` : ''}
-                </div>
-                <span class="partner-badge partner-badge--region">${nearestPartner.partner.region}</span>
-            `;
-            
-            li.addEventListener('click', () => selectPartner(nearestPartner.partner.id));
-            listElement.appendChild(li);
-            
+                    <span class="partner-badge partner-badge--region">${partner.region}</span>
+                `;
+
+                li.addEventListener('click', () => selectPartner(partner.id));
+                listElement.appendChild(li);
+            });
+
             // Marker aktualisieren
             updateMapMarkers();
             
             // Karte auf Suchort und Partner zoomen
             if (searchLocation) {
                 const bounds = L.latLngBounds(
-                    [[searchLat, searchLng], [nearestPartner.partner.lat, nearestPartner.partner.lng]]
+                    [[searchLat, searchLng], ...nearest.map(({ partner }) => [partner.lat, partner.lng])]
                 );
-                map.fitBounds(bounds, { padding: [100, 100] });
+                map.fitBounds(bounds, { padding: [60, 60] });
                 
                 // Entferne vorherigen Suchort-Marker falls vorhanden
                 map.eachLayer(layer => {
@@ -2304,7 +2506,9 @@
                 const searchText = item.dataset.searchText;
 
                 // Prüfe Suchbegriff
-                const matchesSearch = !searchTerm || searchText.includes(searchTerm);
+                const matchesSearch = !searchTerm || (/^\d+$/.test(searchTerm)
+                    ? (item.dataset.plz || '').startsWith(searchTerm)
+                    : matchesWordStart(searchText, searchTerm));
 
                 // Prüfe Region-Filter
                 const matchesRegion = selectedRegions.size === 0 || selectedRegions.has(region);
@@ -2447,6 +2651,12 @@
         // =====================================================
         // Hilfsfunktionen
         // =====================================================
+        // Treffer nur am Wortanfang ("erding" findet nicht "Ofterdingen")
+        function matchesWordStart(text, term) {
+            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp('(^|[\\s,.()/-])' + escaped).test(text);
+        }
+
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
